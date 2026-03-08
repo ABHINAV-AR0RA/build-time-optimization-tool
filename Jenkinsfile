@@ -9,13 +9,17 @@ pipeline {
 
         stage('Build') {
             steps {
-                bat 'npm run build'
+                dir('sample-app') {
+                    bat 'npm run build'
+                }
             }
         }
 
         stage('Test') {
             steps {
-                bat 'npm test'
+                dir('sample-app') {
+                    bat 'npm test'
+                }
             }
         }
 
