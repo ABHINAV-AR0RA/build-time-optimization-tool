@@ -2,7 +2,7 @@
   "name": "sample-app",
   "version": "1.0.0",
   "scripts": {
-    "build": "echo Building application && timeout /t 10 /nobreak",
-    "test": "echo Running tests && timeout /t 10 /nobreak"
+    "build": "node -e \"console.log('Building application'); setTimeout(()=>{},10000)\"",
+    "test": "node -e \"console.log('Running tests'); setTimeout(()=>{},10000)\""
   }
 }
