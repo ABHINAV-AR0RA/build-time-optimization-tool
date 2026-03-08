@@ -3,30 +3,16 @@ pipeline {
 
     stages {
 
-        stage('Install Dependencies') {
+        stage('Build') {
             steps {
-                sh 'npm install'
+                sh 'npm run build'
             }
         }
 
-        stage('Parallel Build and Test') {
-
-            parallel {
-
-                stage('Build') {
-                    steps {
-                        sh 'npm run build'
-                    }
-                }
-
-                stage('Test') {
-                    steps {
-                        sh 'npm test'
-                    }
-                }
-
+        stage('Test') {
+            steps {
+                sh 'npm test'
             }
-
         }
 
     }

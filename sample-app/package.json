@@ -2,7 +2,7 @@
   "name": "sample-app",
   "version": "1.0.0",
   "scripts": {
-    "build": "echo Building application && sleep 5",
-    "test": "echo Running tests && sleep 5"
+    "build": "echo Building application && sleep 10",
+    "test": "echo Running tests && sleep 10"
   }
 }
