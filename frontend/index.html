@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+
+<title>Build Time Optimization Tool</title>
+
+<link rel="stylesheet" href="style.css">
+
+</head>
+
+<body>
+
+<div class="app">
+
+<h1>🚀 Build Time Optimization Tool</h1>
+
+<p class="subtitle">
+Build and test projects automatically using Jenkins CI
+</p>
+
+<div class="card">
+
+<label>GitHub Repository</label>
+
+<input type="text" id="repo" placeholder="Paste GitHub repository URL">
+
+
+<div class="divider">OR</div>
+
+
+<label>Upload Project (ZIP)</label>
+
+<input type="file" id="file">
+
+<p class="hint">
+If nothing is provided, the default <b>sample-app</b> will be built.
+</p>
+
+<button class="primary" onclick="runBuild()">
+BUILD PROJECT
+</button>
+
+</div>
+
+
+
+<div class="status-card">
+
+<h3>Live Build Status</h3>
+
+<div class="status-box">
+
+<div class="status-row">
+<span>Status</span>
+<span id="status-text">Waiting</span>
+</div>
+
+<div class="status-row">
+<span>Building</span>
+<span id="building-text">false</span>
+</div>
+
+<div class="status-row">
+<span>Duration</span>
+<span id="duration-text">0 ms</span>
+</div>
+
+</div>
+
+</div>
+
+</div>
+
+
+
+<script>
+
+setInterval(checkStatus,3000)
+
+async function runBuild(){
+
+document.getElementById("status-text").innerText="BUILDING..."
+
+const repo=document.getElementById("repo").value
+const file=document.getElementById("file").files[0]
+
+if(repo){
+
+await fetch("http://localhost:3000/build/github",{
+method:"POST",
+headers:{"Content-Type":"application/json"},
+body:JSON.stringify({repo})
+})
+
+}
+
+else if(file){
+
+const formData=new FormData()
+formData.append("project",file)
+
+await fetch("http://localhost:3000/build/upload",{
+method:"POST",
+body:formData
+})
+
+}
+
+else{
+
+await fetch("http://localhost:3000/build/default",{method:"POST"})
+
+}
+
+}
+
+
+
+async function checkStatus(){
+
+const res=await fetch("http://localhost:3000/status")
+const data=await res.json()
+
+document.getElementById("status-text").innerText=data.status
+document.getElementById("building-text").innerText=data.building
+document.getElementById("duration-text").innerText=data.duration+" ms"
+
+}
+setInterval(checkStatus,3000)
+</script>
+
+</body>
+
+</html>
+
