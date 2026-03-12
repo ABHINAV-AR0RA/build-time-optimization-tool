@@ -13,7 +13,7 @@
 
 <div class="app">
 
-<h1>🚀 Build Time Optimization Tool</h1>
+<h1>Build Time Optimization Tool</h1>
 
 <p class="subtitle">
 Build and test projects automatically using Jenkins CI
@@ -27,22 +27,26 @@ Build and test projects automatically using Jenkins CI
 
 
 <div class="divider">OR</div>
-
-
+            
+            
 <label>Upload Project (ZIP)</label>
-
+            
 <input type="file" id="file">
-
+<button type="button" onclick="clearFile()">
+Remove file (use default)
+</button>
+            
 <p class="hint">
-If nothing is provided, the default <b>sample-app</b> will be built.
+If nothing is provided, or you select default below, the <b>sample-app</b> will be built.
 </p>
+
+
 
 <button class="primary" onclick="runBuild()">
 BUILD PROJECT
 </button>
 
 </div>
-
 
 
 <div class="status-card">
@@ -73,44 +77,64 @@ BUILD PROJECT
 </div>
 
 
-
 <script>
-
-setInterval(checkStatus,3000)
 
 async function runBuild(){
 
+console.log("runBuild called")
+
 document.getElementById("status-text").innerText="BUILDING..."
+document.getElementById("building-text").innerText="true"
 
 const repo=document.getElementById("repo").value
 const file=document.getElementById("file").files[0]
+const forceDefault=document.getElementById("force-default")?.checked
 
-if(repo){
+try{
+  let res
 
-await fetch("http://localhost:3000/build/github",{
-method:"POST",
-headers:{"Content-Type":"application/json"},
-body:JSON.stringify({repo})
-})
+  if(forceDefault){
+    res = await fetch("http://localhost:3000/build/default",{
+      method:"POST"
+    })
+  }
 
-}
+  else if(repo){
+    res = await fetch("http://localhost:3000/build/github",{
+      method:"POST",
+      headers:{
+        "Content-Type":"application/json"
+      },
+      body:JSON.stringify({repo})
+    })
+  }
 
-else if(file){
+  else if(file){
+    const formData=new FormData()
+    formData.append("project",file)
 
-const formData=new FormData()
-formData.append("project",file)
+    res = await fetch("http://localhost:3000/build/upload",{
+      method:"POST",
+      body:formData
+    })
+  }
 
-await fetch("http://localhost:3000/build/upload",{
-method:"POST",
-body:formData
-})
+  else{
+    res = await fetch("http://localhost:3000/build/default",{
+      method:"POST"
+    })
+  }
 
-}
+  if(res.ok){
+    alert("Jenkins build has been triggered successfully.")
+  }else{
+    const text = await res.text()
+    alert("Failed to trigger Jenkins build: " + text)
+  }
 
-else{
-
-await fetch("http://localhost:3000/build/default",{method:"POST"})
-
+}catch(err){
+  console.error("Build trigger error:",err)
+  alert("Error contacting backend: " + err.message)
 }
 
 }
@@ -119,18 +143,48 @@ await fetch("http://localhost:3000/build/default",{method:"POST"})
 
 async function checkStatus(){
 
-const res=await fetch("http://localhost:3000/status")
-const data=await res.json()
+try{
 
-document.getElementById("status-text").innerText=data.status
-document.getElementById("building-text").innerText=data.building
-document.getElementById("duration-text").innerText=data.duration+" ms"
+const res = await fetch("http://localhost:3000/status")
+
+if(!res.ok){
+return
+}
+
+const data = await res.json()
+
+document.getElementById("status-text").innerText = data.status || "UNKNOWN"
+document.getElementById("building-text").innerText = data.building
+document.getElementById("duration-text").innerText = data.duration + " ms"
+
+}catch(err){
+
+console.log("Status polling error:",err)
 
 }
+
+}
+
+
 setInterval(checkStatus,3000)
+
+function clearFile(){
+const fileInput=document.getElementById("file")
+if(fileInput){
+  fileInput.value=""
+}
+const checkbox=document.getElementById("force-default")
+if(checkbox){
+  checkbox.checked=true
+}
+}
+
+// Ensure functions are available on window for the onclick attributes
+window.runBuild = runBuild
+window.clearFile = clearFile
+
 </script>
 
 </body>
 
 </html>
-

@@ -1,255 +1,169 @@
-# Build Time Optimization Tool using Jenkins CI
+## Build Time Optimization Tool (Jenkins CI)
 
-## Project Overview
-This project demonstrates how build times in a Continuous Integration (CI) pipeline can be optimized using Jenkins.
+This project demonstrates **build time optimization** in a Jenkins CI pipeline by comparing:
 
-The project compares a baseline sequential pipeline with an optimized pipeline where independent tasks run in parallel, reducing overall build time.
+- **Baseline pipeline**: sequential `Build → Test`
+- **Optimized pipeline**: `Build` and `Test` run in **parallel**
 
-The pipeline builds and tests a sample Node.js application located in the `sample-app` folder.
-
----
-
-## Tools & Technologies
-
-- Jenkins
-- GitHub
-- Node.js
-- npm
-- Visual Studio Code
+It also includes a small **web UI + Node.js backend** that can trigger your Jenkins pipeline and show live build status.
 
 ---
 
-## Project Structure
-build-time-optimization-tool
-│
-├ Jenkinsfile
-├ README.md
-│
-├ sample-app
-│ ├ index.js
-│ └ package.json
-│
-├ results
-│ ├ baseline.png
-│ ├ baseline-stageview.png
-│ ├ baseline-timing.png
-│ ├ optimized.png
-│ ├ optimized-stageview.png
-│ ├ optimized-timing.png
-│
-├ slides
-│ └ presentation.pptx
-│
-└ demo
-└ demo-video.mp4
-
----
-
-## CI Pipeline Workflow
-
-The Jenkins pipeline performs the following tasks:
-
-1. Checkout source code from GitHub
-2. Install required tools (Node.js)
-3. Run build stage
-4. Run test stage
-
-Two versions of the pipeline were implemented:
-
-### Baseline Pipeline (Sequential)
-
-Build and Test stages run one after another.
+## Project structure
 
 ```
-Build → Test
+build-time-optimization-tool/
+├─ Jenkinsfile
+├─ backend/
+│  ├─ server.js
+│  ├─ package.json
+│  └─ .env              (you create this locally)
+├─ frontend/
+│  ├─ index.html
+│  └─ style.css
+├─ sample-app/
+│  ├─ index.js
+│  └─ package.json
+└─ results/             (screenshots + console output)
 ```
-
-Total execution time ≈ **28 seconds**
 
 ---
 
-### Optimized Pipeline (Parallel)
+## How it works (high level)
 
-Build and Test stages run simultaneously using Jenkins parallel stages.
+### Jenkins pipeline
 
-```
-Build
-   ↘
-    Parallel Execution
-   ↗
-Test
-```
+The `Jenkinsfile` prepares a project in one of three ways:
 
-Total execution time ≈ **19 seconds**
+- **Default** (recommended to start): builds the repo’s `sample-app` folder.
+- **GitHub repo**: if `REPO_URL` is provided, Jenkins clones that repository.
+- **Uploaded project**: if `LOCAL_PATH` is provided, Jenkins copies it into the workspace (Windows `xcopy`).
+
+Then it installs dependencies and runs build/test (optimized version uses parallel stages).
+
+### Web UI + backend
+
+- `frontend/index.html` calls the backend on port `3000`.
+- `backend/server.js` triggers Jenkins using:
+  - Jenkins crumb (`/crumbIssuer/api/json`)
+  - Job trigger endpoint (`/job/<JOB_NAME>/buildWithParameters`)
+  - Basic auth (`JENKINS_USER` + `JENKINS_TOKEN`)
 
 ---
 
-## Results
+## Prerequisites
 
-| Pipeline Version | Execution Type | Time |
+- **Jenkins** (running locally or remotely)
+- **Node.js + npm** (for `backend/` and to build the `sample-app`)
+- Jenkins should have:
+  - **NodeJS tool** configured (e.g. “Node18”), OR Node installed on the agent
+  - Pipeline support (standard Jenkins Pipeline setup)
+
+> Note: The current `Jenkinsfile` uses Windows `bat` commands. Run Jenkins on a **Windows agent** or update the pipeline steps for Linux/macOS.
+
+---
+
+## Jenkins setup (one-time)
+
+### 1) Create the Jenkins job
+
+1. In Jenkins: **New Item → Pipeline**
+2. Job name example: `build-time-optimization`
+3. Choose **Pipeline script from SCM**
+4. SCM: **Git**
+5. Repository URL: your GitHub repo URL (this repo)
+6. Script Path: `Jenkinsfile`
+7. Save
+
+### 2) Confirm parameters exist (optional but recommended)
+
+This project’s `Jenkinsfile` expects parameters:
+
+- `REPO_URL` (string)
+- `LOCAL_PATH` (string)
+
+If they are not present in your job UI, Jenkins will still run, but adding them makes it easier to test “Build with Parameters”.
+
+---
+
+## Backend setup (required for the web button)
+
+### 1) Create `backend/.env`
+
+Create a file named `backend/.env` (this file is not committed). Example:
+
+```env
+JENKINS_URL=http://localhost:8080
+JOB_NAME=build-time-optimization
+JENKINS_USER=your-jenkins-username
+JENKINS_TOKEN=your-jenkins-api-token
+```
+
+### 2) Generate your Jenkins API token
+
+In Jenkins:
+
+- Click your user (top-right) → **Configure**
+- Under **API Token**, generate a token
+- Put it into `backend/.env` as `JENKINS_TOKEN`
+
+**Important**: If you change your Jenkins username or token, update `backend/.env` accordingly or the build trigger will fail.
+
+### 3) Install and run backend
+
+From the repo root:
+
+```bash
+cd backend
+npm install
+npm start
+```
+
+Backend runs at `http://localhost:3000`.
+
+---
+
+## Frontend setup (web UI)
+
+Open `frontend/index.html` in a browser (double-click is fine).
+
+Use one of these:
+
+- **Default**: leave both fields empty → builds `sample-app`
+- **GitHub URL**: paste a repo URL → triggers build with `REPO_URL`
+- **Upload ZIP**: select a ZIP → triggers build with `LOCAL_PATH` (see note below)
+
+> Upload note: the backend stores uploads locally under `backend/uploads/` and passes the absolute path to Jenkins as `LOCAL_PATH`. This only works if Jenkins can access that path (same machine / shared path).
+
+---
+
+## Troubleshooting
+
+### Button click does nothing
+
+- Ensure `frontend/index.html` is refreshed (hard refresh) and DevTools console is open.
+- Ensure backend is running and reachable at `http://localhost:3000`.
+
+### Backend returns 400 / build not triggered
+
+- Verify `backend/.env` values:
+  - `JENKINS_URL` is correct
+  - `JOB_NAME` matches the exact Jenkins job name
+  - `JENKINS_USER` is correct
+  - `JENKINS_TOKEN` is a valid **API token** (not your account password)
+
+### Jenkins runs but can’t find `sample-app`
+
+- Ensure the Jenkins job is configured to check out this repository (Pipeline script from SCM).
+
+---
+
+## Results (baseline vs optimized)
+
+| Pipeline version | Execution | Time |
 |---|---|---|
-Baseline Pipeline | Sequential | 28 sec |
-Optimized Pipeline | Parallel | 19 sec |
-
-### Improvement
-
-```
-Build time reduced by ~32%
-```
-
----
-
-## How to Run the Project
-
-1. Install Jenkins
-2. Clone the repository
-
-```
-git clone https://github.com/ABHINAV-AR0RA/build-time-optimization-tool.git
-```
-
-3. Create a new Pipeline Job in Jenkins
-4. Connect the repository
-5. Run the pipeline
-
----
-
-## Key Learning Outcomes
-
-- Understanding CI/CD pipelines
-- Implementing Jenkins pipelines
-- Sequential vs Parallel execution
-- Performance optimization in build systems
-
----
-
-## Author
-
-Abhinav Arora  
-DevOps Project – Build Time Optimization Tool
-
-# Build Time Optimization Tool using Jenkins CI
-
-## Project Overview
-This project demonstrates how build times in a Continuous Integration (CI) pipeline can be optimized using Jenkins.
-
-The project compares a baseline sequential pipeline with an optimized pipeline where independent tasks run in parallel, reducing overall build time.
-
-The pipeline builds and tests a sample Node.js application located in the `sample-app` folder.
-
----
-
-## Tools & Technologies
-
-- Jenkins
-- GitHub
-- Node.js
-- npm
-- Visual Studio Code
-
----
-
-## Project Structure
-build-time-optimization-tool
-│
-├ Jenkinsfile
-├ README.md
-│
-├ sample-app
-│ ├ index.js
-│ └ package.json
-│
-├ results
-│ ├ baseline.png
-│ ├ baseline-stageview.png
-│ ├ baseline-timing.png
-│ ├ optimized.png
-│ ├ optimized-stageview.png
-│ ├ optimized-timing.png
-│
-├ slides
-│ └ presentation.pptx
-│
-└ demo
-└ demo-video.mp4
-
----
-
-## CI Pipeline Workflow
-
-The Jenkins pipeline performs the following tasks:
-
-1. Checkout source code from GitHub
-2. Install required tools (Node.js)
-3. Run build stage
-4. Run test stage
-
-Two versions of the pipeline were implemented:
-
-### Baseline Pipeline (Sequential)
-
-Build and Test stages run one after another.
-
-```
-Build → Test
-```
-
-Total execution time ≈ **28 seconds**
-
----
-
-### Optimized Pipeline (Parallel)
-
-Build and Test stages run simultaneously using Jenkins parallel stages.
-
-```
-Build
-   ↘
-    Parallel Execution
-   ↗
-Test
-```
-
-Total execution time ≈ **19 seconds**
-
----
-
-## Results
-
-| Pipeline Version | Execution Type | Time |
-|---|---|---|
-Baseline Pipeline | Sequential | 28 sec |
-Optimized Pipeline | Parallel | 19 sec |
-
-### Improvement
-
-```
-Build time reduced by ~32%
-```
-
----
-
-## How to Run the Project
-
-1. Install Jenkins
-2. Clone the repository
-
-```
-git clone https://github.com/ABHINAV-AR0RA/build-time-optimization-tool.git
-```
-
-3. Create a new Pipeline Job in Jenkins
-4. Connect the repository
-5. Run the pipeline
-
----
-
-## Key Learning Outcomes
-
-- Understanding CI/CD pipelines
-- Implementing Jenkins pipelines
-- Sequential vs Parallel execution
-- Performance optimization in build systems
+| Baseline | Sequential | ~28 sec |
+| Optimized | Parallel | ~19 sec |
 
 ---
 
